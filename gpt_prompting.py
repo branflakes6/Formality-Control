@@ -4,6 +4,7 @@ from langchain.prompts import PromptTemplate
 from langchain.llms import OpenAI
 from langchain.chains import LLMChain
 import nltk
+import streamlit as st
 
 load_dotenv()
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
@@ -60,9 +61,9 @@ data = [
 # Loop through the data and generate a prompt for each English sentence
 # Generate formal and informal and compare against gold sentences
 
-
-def training_loop(data):
-    sentence = "그게 [F]님이[/F] 제일 [F]좋아하시는[/F] [F]피자예요[/F]?"
+@st.cache_data
+def training_loop(data, option):
+    sentence = option
     prompt = get_prompt(data, 1, sentence)
     prompt = PromptTemplate(
         input_variables=["sentence"],
@@ -72,10 +73,14 @@ def training_loop(data):
     prediction = chain.run(sentence)
     prediction = prediction[18:]
     print("prediction", prediction)
-    gold_sent = '그게 [F]네가[/F] 제일 [F]좋아하는[/F] [F]피자야[/F]?'
-    bleu = nltk.translate.bleu_score.sentence_bleu([gold_sent.split()], prediction.split())
-    print(bleu)
-    print(prediction.split())
-    print(gold_sent.split())
+    #gold_sent = '그게 [F]네가[/F] 제일 [F]좋아하는[/F] [F]피자야[/F]?'
+    #bleu = nltk.translate.bleu_score.sentence_bleu([gold_sent.split()], prediction.split())
+    return prediction
 
-training_loop(data)
+st.title('Formality Control')
+
+option = st.selectbox('Pick a sample sentence to translate', ('그게 [F]님이[/F] 제일 [F]좋아하시는[/F] [F]피자예요[/F]?', '무슨 이유에서든 컴퓨터에 공간이 충분하지 않다는 [F]뜻이에요[/F]'))
+
+if st.button('Run Model'):
+    example = training_loop(data, option)
+    st.text(example)
