@@ -33,24 +33,9 @@ LLM = OpenAI(temperature = 0, model_name= "text-davinci-003")
 
 # Read in data
 # Create a dataframe, cols = english, formal, informal
-def data_processing():
-  return 0
-
-# Loop through n rows of the data
-# Create a string in the form 'English: english, Formal Korean: formal, Informal Korean: inforaml'
-# Add all strings together
-# Ensure variable is not in the prompt (Cant have the sentence we are translating in our prompt or model will know the answer)
-def english_to_formal_informal_prompt(data, n, variable):
-  return 0
-
-# Prompt 'Formal Korean: formal, Informal Korean: informal'
-def formal_to_formal_prompt(data, n, variable):
-  return 0
 
 
 # Initialize model
-LLM = OpenAI(temperature=0, model_name="text-davinci-003")
-
 
 def get_prompt(data, n, variable):
     return data[0]
@@ -77,10 +62,26 @@ def training_loop(data, option):
     #bleu = nltk.translate.bleu_score.sentence_bleu([gold_sent.split()], prediction.split())
     return prediction
 
+def hindi_translater(sent):
+    prompt = "Translate from Hindi to English: {sent}"
+    prompt = PromptTemplate(
+        input_variables=["sent"],
+        template=prompt
+    )
+    chain = LLMChain(llm=LLM, prompt=prompt)
+    out = chain.run(sent)
+    return out
+
 st.title('Formality Control')
 
 option = st.selectbox('Pick a sample sentence to translate', ('그게 [F]님이[/F] 제일 [F]좋아하시는[/F] [F]피자예요[/F]?', '무슨 이유에서든 컴퓨터에 공간이 충분하지 않다는 [F]뜻이에요[/F]'))
 
 if st.button('Run Model'):
     example = training_loop(data, option)
+    st.text(example)
+
+phrase = st.text_input('Enter Hindi to Translate to English', "")
+
+if st.button('Translate'):
+    example = hindi_translater(phrase)
     st.text(example)
