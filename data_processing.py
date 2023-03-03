@@ -28,7 +28,7 @@ def data_processing():
     data = dataframe_builder(data, path, 'Informal_Korean')
 
     data = pd.DataFrame(data)
-    data.to_csv('./data/train/en-ko/en-kr_combined_annotated', sep='\t')
+    data.to_csv('./data/train/en-ko/en-kr_combined_annotated')
     return 0
 
 
@@ -46,7 +46,9 @@ def formal_to_formal_prompt(data, n, variable):
 
 
 def main():
-    data_processing()
+    # data_processing()
+    data = pd.read_csv('data/train/en-ko/en-kr_combined_annotated')
+    print(data['English'])
 
 
 if __name__ == '__main__':
