@@ -4,10 +4,11 @@ from langchain.chains import LLMChain
 import os
 from dotenv import load_dotenv
 import pandas as pd
+from tqdm import tqdm
 
 load_dotenv()
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-LLM = OpenAI(temperature=0, model_name="text-davinci-003")
+LLM = OpenAI(temperature=0, model_name="text-curie-001")
 
 
 def get_model():
@@ -33,15 +34,15 @@ def training_loop(data, option):
     return prediction
 
 
-def hindi_translater(sent):
-    prompt = "Translate from Hindi to English: {sent}"
-    prompt = PromptTemplate(
-        input_variables=["sent"],
-        template=prompt
-    )
-    chain = LLMChain(llm=LLM, prompt=prompt)
-    out = chain.run(sent)
-    return out
+# def hindi_translater(sent):
+#     prompt = "Translate from Hindi to English: {sent}"
+#     prompt = PromptTemplate(
+#         input_variables=["sent"],
+#         template=prompt
+#     )
+#     chain = LLMChain(llm=LLM, prompt=prompt)
+#     out = chain.run(sent)
+#     return out
 
 
 # Loop through n rows of the data
@@ -53,7 +54,7 @@ def english_to_formal_informal_prompt(data, n, variable):
 
 
 # Prompt 'Formal Korean: formal, Informal Korean: informal'
-def formal_to_formal_prompt(data, n, query):
+def formal_to_informal_prompt(data, n, query):
     data = data[:n]
     formal_kr = data['Formal_Korean']
     informal_kr = data['Informal_Korean']
@@ -72,13 +73,47 @@ def prompt_test(prompt, query):
     )
     chain = LLMChain(llm=LLM, prompt=prompt)
     prediction = chain.run(query)
-    print("prediction", prediction)
     return prediction
 
 
-data = pd.read_csv('data/train/en-ko/en-kr_combined_annotated')
-query = data['Formal_Korean'][0]
-prompt = formal_to_formal_prompt(data, 10, query)
-query = 'Formal Korean:' + query + 'Informal Korean:'
+data = pd.read_csv('data/train/en-ko/en-kr_combined')
+# query = data['Formal_Korean'][20]
+# prompt = formal_to_formal_prompt(data, 10, query)
+# query = 'Formal Korean:' + query + 'Informal Korean:'
+#
+# pred = prompt_test(prompt, query)
+#
+# query = 'Tất cả đều là dầu và rồi [F]quý vị[/F] không thể và rồi trở thành nhựa [F]quý vị ạ[/F].'
+# query = 'Formal Vietnamese:' + query + 'Informal Vietnamese:'
+# pred = prompt_test(prompt, query)
 
-pred = prompt_test(prompt, query)
+# print(data)
+data = data[:50]
+preds = []
+for x in tqdm(data.iterrows()):
+    query = x[1]['Formal_Korean']
+    prompt = formal_to_informal_prompt(data, 5, x)
+    query = 'Formal Korean:' + query + 'Informal Korean:'
+    pred = prompt_test(prompt, query)
+    pred = pred + "\n"
+    preds.append(pred)
+
+f = open("preds", "w", encoding='utf-8')
+for x in preds:
+    f.write(x)
+
+data = pd.read_csv('data/train/en-ko/en-kr_combined_annotated')
+data = data[:50]
+inf = []
+kor = []
+for x in data.iterrows():
+    inf.append(x[1]['Informal_Korean'])
+    kor.append(x[1]['Formal_Korean'])
+
+f = open("kor", "w", encoding='utf-8')
+for x in kor:
+    f.write(x)
+
+f = open("inf", "w", encoding='utf-8')
+for x in inf:
+    f.write(x)
