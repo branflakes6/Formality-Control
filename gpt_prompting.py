@@ -1,52 +1,24 @@
-import os
-from dotenv import load_dotenv
 from langchain.prompts import PromptTemplate
 from langchain.llms import OpenAI
 from langchain.chains import LLMChain
-import nltk
-import streamlit as st
+import os
+from dotenv import load_dotenv
+import pandas as pd
 
 load_dotenv()
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-LLM = OpenAI(temperature = 0, model_name= "text-davinci-003")
-# prompt = PromptTemplate(
-#     input_variables=["sentence"],
-#     template="English: Yeah Did your mom know you were throwing the party?\n Formal Korean: 그, 어머님은 [F]님이[/F] 그 파티 연 거 [F]아세요[/F]?\n Informal Korean: 그, 어머님은 [F]네가[/F] 그 파티 연 거 [F]아셔[/F]?\n English: [F]내가[/F] [F]너[/F] 잘못되라고 하고 있다는 [F]거야[/F]?\n Formal Korean:[F]제가[/F] [F]님[/F] 잘못되라고 하고 있다는 [F]거예요[/F]?\n Informal Korean:[F]내가[/F] [F]너[/F] 잘못되라고 하고 있다는 [F]거야[/F]?\n English: {sentence} "
-# )
-
-# chain = LLMChain(llm=LLM, prompt=prompt)
-# chain.run("That means that you don't have enough space on your computer for some reason.")
-# #무슨 이유에서든 컴퓨터에 공간이 충분하지 않다는 [F]뜻이에요[/F].
-# #무슨 이유에서든 컴퓨터에 공간이 충분하지 않다는 [F]뜻이야[/F].
-# #Formal Output: 그러면 [F]님[/F]의 컴퓨터에 어떤 이유로 인해 충분한 공간이 없다는 걸 의미합니다
-# # English: Then it means that [F][/F]'s computer doesn't have enough space for some reason.
+LLM = OpenAI(temperature=0, model_name="text-davinci-003")
 
 
-# prompt = PromptTemplate(
-#     input_variables=["sentence"],
-#     template="Formal Korean: 그, 어머님은 [F]님이[/F] 그 파티 연 거 [F]아세요[/F]?\n Informal Korean: 그, 어머님은 [F]네가[/F] 그 파티 연 거 [F]아셔[/F]?\n Formal Korean:[F]제가[/F] [F]님[/F] 잘못되라고 하고 있다는 [F]거예요[/F]?\n Informal Korean:[F]내가[/F] [F]너[/F] 잘못되라고 하고 있다는 [F]거야[/F]?\n Formal Korean: {sentence} "
-# )
+def get_model():
+    model = OpenAI(temperature=0, model_name="text-davinci-003")
+    return model
 
-# chain = LLMChain(llm=LLM, prompt=prompt)
-# chain.run("그게 [F]님이[/F] 제일 [F]좋아하시는[/F] [F]피자예요[/F]?")
-# #그게 [F]네가[/F] 제일 [F]좋아하는[/F] [F]피자야[/F]?
-
-# Read in data
-# Create a dataframe, cols = english, formal, informal
-
-
-# Initialize model
 
 def get_prompt(data, n, variable):
     return data[0]
 
 
-data = [
-    'Formal Korean: 그, 어머님은 [F]님이[/F] 그 파티 연 거 [F]아세요[/F]?\n Informal Korean: 그, 어머님은 [F]네가[/F] 그 파티 연 거 [F]아셔[/F]?\n Formal Korean:[F]제가[/F] [F]님[/F] 잘못되라고 하고 있다는 [F]거예요[/F]?\n Informal Korean:[F]내가[/F] [F]너[/F] 잘못되라고 하고 있다는 [F]거야[/F]?\n Formal Korean: {sentence}']
-# Loop through the data and generate a prompt for each English sentence
-# Generate formal and informal and compare against gold sentences
-
-@st.cache_data
 def training_loop(data, option):
     sentence = option
     prompt = get_prompt(data, 1, sentence)
@@ -58,9 +30,8 @@ def training_loop(data, option):
     prediction = chain.run(sentence)
     prediction = prediction[18:]
     print("prediction", prediction)
-    #gold_sent = '그게 [F]네가[/F] 제일 [F]좋아하는[/F] [F]피자야[/F]?'
-    #bleu = nltk.translate.bleu_score.sentence_bleu([gold_sent.split()], prediction.split())
     return prediction
+
 
 def hindi_translater(sent):
     prompt = "Translate from Hindi to English: {sent}"
@@ -72,16 +43,42 @@ def hindi_translater(sent):
     out = chain.run(sent)
     return out
 
-st.title('Formality Control')
 
-option = st.selectbox('Pick a sample sentence to translate', ('그게 [F]님이[/F] 제일 [F]좋아하시는[/F] [F]피자예요[/F]?', '무슨 이유에서든 컴퓨터에 공간이 충분하지 않다는 [F]뜻이에요[/F]'))
+# Loop through n rows of the data
+# Create a string in the form 'English: english, Formal Korean: formal, Informal Korean: inforaml'
+# Add all strings together
+# Ensure variable is not in the prompt (Cant have the sentence we are translating in our prompt or model will know the answer)
+def english_to_formal_informal_prompt(data, n, variable):
+    return 0
 
-if st.button('Run Model'):
-    example = training_loop(data, option)
-    st.text(example)
 
-phrase = st.text_input('Enter Hindi to Translate to English', "")
+# Prompt 'Formal Korean: formal, Informal Korean: informal'
+def formal_to_formal_prompt(data, n, query):
+    data = data[:n]
+    formal_kr = data['Formal_Korean']
+    informal_kr = data['Informal_Korean']
+    prompt = ''
+    for i, _ in enumerate(formal_kr):
+        if formal_kr[i] != query:
+            prompt = prompt + "Formal Korean:" + formal_kr[i] + 'Informal Korean:' + informal_kr[i]
+    prompt = prompt + '{query}'
+    return prompt
 
-if st.button('Translate'):
-    example = hindi_translater(phrase)
-    st.text(example)
+
+def prompt_test(prompt, query):
+    prompt = PromptTemplate(
+        input_variables=['query'],
+        template=prompt
+    )
+    chain = LLMChain(llm=LLM, prompt=prompt)
+    prediction = chain.run(query)
+    print("prediction", prediction)
+    return prediction
+
+
+data = pd.read_csv('data/train/en-ko/en-kr_combined_annotated')
+query = data['Formal_Korean'][0]
+prompt = formal_to_formal_prompt(data, 10, query)
+query = 'Formal Korean:' + query + 'Informal Korean:'
+
+pred = prompt_test(prompt, query)
