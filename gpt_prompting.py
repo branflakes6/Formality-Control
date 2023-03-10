@@ -34,23 +34,16 @@ def training_loop(data, option):
     return prediction
 
 
-# def hindi_translater(sent):
-#     prompt = "Translate from Hindi to English: {sent}"
-#     prompt = PromptTemplate(
-#         input_variables=["sent"],
-#         template=prompt
-#     )
-#     chain = LLMChain(llm=LLM, prompt=prompt)
-#     out = chain.run(sent)
-#     return out
-
-
-# Loop through n rows of the data
-# Create a string in the form 'English: english, Formal Korean: formal, Informal Korean: inforaml'
-# Add all strings together
-# Ensure variable is not in the prompt (Cant have the sentence we are translating in our prompt or model will know the answer)
-def english_to_formal_informal_prompt(data, n, variable):
-    return 0
+def english_to_formal_prompt(data, n, variable):
+    data = data[:n]
+    formal_kr = data['Formal_Korean']
+    english = data['English']
+    prompt = ' '
+    for i, _ in enumerate(formal_kr):
+        if english[i] != query:
+            prompt = prompt + "English:" + english[i] + 'Formal Korean:' + formal_kr[i]
+    prompt = prompt + '{query}'
+    return prompt
 
 
 # Prompt 'Formal Korean: formal, Informal Korean: informal'
@@ -75,45 +68,73 @@ def prompt_test(prompt, query):
     prediction = chain.run(query)
     return prediction
 
+def formal_to_informal(data):
+    data = data[:5]
+    preds = []
+    for x in tqdm(data.iterrows()):
+        query = x[1]['Formal_Korean']
+        prompt = formal_to_informal_prompt(data, 5, x)
+        query = 'Formal Korean:' + query + 'Informal Korean:'
+        print(query)
+        pred = prompt_test(prompt, query)
+        pred = pred + "\n"
+        preds.append(pred)
+
+    f = open("preds_informal", "w", encoding='utf-8')
+    for x in preds:
+        f.write(x)
+
+    data = pd.read_csv('data/train/en-ko/en-kr_combined_annotated')
+    data = data[:1]
+    inf = []
+    kor = []
+    for x in data.iterrows():
+        inf.append(x[1]['Informal_Korean'])
+        kor.append(x[1]['Formal_Korean'])
+
+    f = open("kor", "w", encoding='utf-8')
+    for x in kor:
+        f.write(x)
+
+    f = open("inf", "w", encoding='utf-8')
+    for x in inf:
+        f.write(x)
+
+
+def eng_to_formal(data):
+    preds = []
+    for x in tqdm(data.iterrows()):
+        query = x[1]['English']
+        prompt = english_to_formal_prompt(data, 5, x)
+        query = 'English:' + query + 'Formal Korean:'
+        print(query)
+        print(prompt)
+        pred = prompt_test(prompt, query)
+        pred = pred + "\n"
+        preds.append(pred)
+
+    f = open("preds_formal)", "w", encoding='utf-8')
+    for x in preds:
+        f.write(x)
+
+    data = pd.read_csv('data/train/en-ko/en-kr_combined_annotated')
+    data = data[:1]
+    eng = []
+    kor = []
+    for x in data.iterrows():
+        eng.append(x[1]['English'])
+        kor.append(x[1]['Formal_Korean'])
+
+    f = open("formal_kr", "w", encoding='utf-8')
+    for x in kor:
+        f.write(x)
+
+    f = open("eng_gold", "w", encoding='utf-8')
+    for x in eng:
+        f.write(x)
+
 
 data = pd.read_csv('data/train/en-ko/en-kr_combined')
-# query = data['Formal_Korean'][20]
-# prompt = formal_to_formal_prompt(data, 10, query)
-# query = 'Formal Korean:' + query + 'Informal Korean:'
-#
-# pred = prompt_test(prompt, query)
-#
-# query = 'Tất cả đều là dầu và rồi [F]quý vị[/F] không thể và rồi trở thành nhựa [F]quý vị ạ[/F].'
-# query = 'Formal Vietnamese:' + query + 'Informal Vietnamese:'
-# pred = prompt_test(prompt, query)
+eng_to_formal(data)
+formal_to_informal(data)
 
-# print(data)
-data = data[:50]
-preds = []
-for x in tqdm(data.iterrows()):
-    query = x[1]['Formal_Korean']
-    prompt = formal_to_informal_prompt(data, 5, x)
-    query = 'Formal Korean:' + query + 'Informal Korean:'
-    pred = prompt_test(prompt, query)
-    pred = pred + "\n"
-    preds.append(pred)
-
-f = open("preds", "w", encoding='utf-8')
-for x in preds:
-    f.write(x)
-
-data = pd.read_csv('data/train/en-ko/en-kr_combined_annotated')
-data = data[:50]
-inf = []
-kor = []
-for x in data.iterrows():
-    inf.append(x[1]['Informal_Korean'])
-    kor.append(x[1]['Formal_Korean'])
-
-f = open("kor", "w", encoding='utf-8')
-for x in kor:
-    f.write(x)
-
-f = open("inf", "w", encoding='utf-8')
-for x in inf:
-    f.write(x)
