@@ -13,12 +13,7 @@ st.title('Formality Control')
 
 option = st.selectbox('Pick a sample sentence to translate', ('그게 [F]님이[/F] 제일 [F]좋아하시는[/F] [F]피자예요[/F]?', '무슨 이유에서든 컴퓨터에 공간이 충분하지 않다는 [F]뜻이에요[/F]'))
 
-if st.button('Run Model'):
-    example = gpt_prompting.training_loop(data, option)
-    st.text(example)
+# if st.button('Run Model'):
+#     example = gpt_prompting.training_loop(data, option)
+#     st.text(example)
 
-phrase = st.text_input('Enter Hindi to Translate to English', "")
-
-if st.button('Translate'):
-    example = gpt_prompting.hindi_translater(phrase)
-    st.text(example)
