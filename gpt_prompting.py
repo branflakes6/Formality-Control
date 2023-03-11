@@ -5,32 +5,38 @@ import os
 from dotenv import load_dotenv
 import pandas as pd
 from tqdm import tqdm
+import datasets
 
 load_dotenv()
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 LLM = OpenAI(temperature=0, model_name="text-curie-001")
 
 
-def gold_labels(data, n_samples):
+def bleu_scorer():
+    return 0
+
+
+def gold_labels_kr(data, n_samples):
     data = data[:n_samples]
     english = []
-    kormal = []
+    formal = []
     informal = []
     for x in data.iterrows():
         english.append(x[1]['English'])
-        kormal.append(x[1]['Formal_Korean'])
+        formal.append(x[1]['Formal_Korean'])
+        informal.append(x[1]['Informal_Korean'])
 
-    f = open("formal_gold", "w", encoding='utf-8')
-    for x in kormal:
-        f.write(x)
+    f = open("outputs\\formal_gold", "w", encoding='utf-8')
+    for x in formal:
+        f.write(x.strip()+'\n', )
 
-    f = open("eng_gold", "w", encoding='utf-8')
+    f = open("outputs\eng_gold", "w", encoding='utf-8')
     for x in english:
-        f.write(x)
+        f.write(x.strip()+'\n')
 
-    f = open("informal_gold", "w", encoding='utf-8')
+    f = open("outputs\informal_gold", "w", encoding='utf-8')
     for x in informal:
-        f.write(x)
+        f.write(x.strip()+'\n')
 
 
 def english_to_formal_prompt_n_shot(data, n, query):
@@ -40,8 +46,8 @@ def english_to_formal_prompt_n_shot(data, n, query):
     prompt = ''
     for i, _ in enumerate(formal_kr):
         if english[i] != query:
-            prompt = prompt + "English:" + english[i] + 'Formal Korean:' + formal_kr[i]
-    prompt = prompt + '{query}'
+            prompt = prompt + "Translate English: " + english[i] + 'To Formal Korean: ' + formal_kr[i]
+    prompt =  prompt + '{query}. '
     return prompt
 
 
@@ -67,108 +73,119 @@ def prompter(prompt, query):
     return prediction
 
 
-def eng_to_formal_n_shot(data, n_samples, n_shot):
-    data = data[:n_samples]
-    preds = []
-    for x in tqdm(data.iterrows()):
-        query = x[1]['English']
-        query = 'English:' + query + 'Formal Korean:'
-        if n_shot > 0:
-            prompt = english_to_formal_prompt_n_shot(data, n_shot, x)
-        else:
-            prompt = '{query}'
-        pred = prompter(prompt, query)
-        pred = pred + "\n"
-        preds.append(pred)
-
-    f = open("preds_formal)", "w", encoding='utf-8')
-    for x in preds:
-        f.write(x)
-    data = pd.read_csv('data/train/en-ko/en-kr_combined_annotated')
-    gold_labels(data, n_samples)
-
-
-class FormalToInformal(object):
-    def __init__(self, data, formal_lang, informal_lang, prompt_func, file_path):
+class GPTPrompter(object):
+    def __init__(self, data, formal_lang, prompt_func, file_path, n):
         self.data = data
         self.formal_lang = formal_lang
-        self.informal_lang = informal_lang
         self.prompt_func = prompt_func
         self.file_path = file_path
-
+        self.n = n
     def zero_shot(self, zero_prompt, n_samples):
         data = self.data[:n_samples]
         preds = []
         for x in tqdm(data.iterrows()):
             query = x[1][self.formal_lang]
-            print("prompt", zero_prompt)
-            print("query", query)
-            # pred = prompter(zero_prompt, query)
-            # print("pred", pred)
-            # print("DONE")
-            # pred = pred + "\n"
-            # preds.append(pred)
+            pred = prompter(zero_prompt, query)
+            preds.append(pred)
+
+
+        f = open(self.file_path, "w", encoding='utf-8')
+        for x in preds:
+            f.write(x)
 
     def n_shot(self, n_samples):
         data = self.data[:n_samples]
         preds = []
         for x in tqdm(data.iterrows()):
             query = x[1][self.formal_lang]
-            prompt, query = self.prompt_func(data, x, query)
-            print("prompt", prompt)
-            print("query", query)
-            print("DONE")
+            prompt, query = self.prompt_func(data, self.n, query)
+            # print("prompt", prompt)
+            # print("query", query)
             pred = prompter(prompt, query)
-            print("pred", pred)
-            pred = pred + "\n"
+            pred = pred.strip()
+            pred = pred + '\n'
             preds.append(pred)
 
-        # f = open("preds_informal", "w", encoding='utf-8')
-        # for x in preds:
-        #     f.write(x)
-        # data = pd.read_csv('data/train/en-ko/en-kr_combined_annotated')
-        # gold_labels(data, n_samples)
+        f = open(self.file_path, "w", encoding='utf-8')
+        for x in preds:
+            f.write(x)
 
 
-def zero_shot_korean_formal_to_informal():
+def eng_to_formal_kr(n_samples, n_shot):
+    data = pd.read_csv('data/train/en-ko/en-kr_combined')
+
+    def prompt_1(data, n, query):
+        prompt = english_to_formal_prompt_n_shot(data, n, query)
+        query = 'Translate English: ' + query + 'To Formal Korean:'
+        return prompt, query
+
+    eng_to_formal = GPTPrompter(data, 'English', prompt_1, '.\outputs\eng_formal', n_shot)
+    eng_to_formal.n_shot(n_samples)
+
+    data = pd.read_csv('data/train/en-ko/en-kr_combined_annotated')
+    gold_labels_kr(data, n_samples)
+
+
+def zero_shot_korean_formal_to_informal(n_samples):
     data = pd.read_csv('data/train/en-ko/en-kr_combined')
 
     def prompt_1(data, x, query):
         return '', ''
 
-    korean_zero = FormalToInformal(data, 'Formal_Korean', 'Informal_Korean', prompt_1, '')
-    prompt = 'Can you convert this from Formal Korean to Informal Korean: {query}'
-    korean_zero.zero_shot(prompt, 3)
+    korean_zero = GPTPrompter(data, 'Formal_Korean', prompt_1, '.\outputs\kr_informal_zero', 0)
+    prompt = 'Can you convert this from Formal Korean to Informal Korean do not included newlines: {query}'
+    korean_zero.zero_shot(prompt, n_samples)
+
+    korean_zero.file_path = 'zero_preds2'
     prompt = 'Can you give me the informal Korean of the following formal Korean sentence in Korean Hangul: {query}'
-    korean_zero.zero_shot(prompt, 1)
-    prompt = 'Can you give me the informal Korean of the following formal Korean sentence in Korean, please provide the output in the Korean language: {query}'
-    korean_zero.zero_shot(prompt, 1)
+    korean_zero.zero_shot(prompt, n_samples)
+
+    korean_zero.file_path = 'zero_preds3'
+    prompt = 'Can you translate the following Formal Korean sentence into Informal Korean, please provide the output in Korean: {query}'
+    korean_zero.zero_shot(prompt, n_samples)
+
+    data = pd.read_csv('data/train/en-ko/en-kr_combined_annotated')
+    gold_labels_kr(data, n_samples)
 
 
-def n_shot_korean_formal_to_informal():
+def n_shot_korean_formal_to_informal(n_samples, n_shot):
     data = pd.read_csv('data/train/en-ko/en-kr_combined')
 
-    def prompt_1(data, x, query):
-        prompt = formal_to_informal_prompt_n_shot(data, 5, x)
+    def prompt_1(data, n, query):
+        prompt = formal_to_informal_prompt_n_shot(data, n, query)
         query = 'Formal Korean:' + query + 'Informal Korean:'
         return prompt, query
 
-    kr_form_to_inform = FormalToInformal(data, 'Formal_Korean', 'Informal_Korean', prompt_1, '')
-    kr_form_to_inform.n_shot(2)
+    kr_form_to_inform = GPTPrompter(data, 'Formal_Korean', prompt_1, '.\outputs\kr_informal', n_shot)
+    kr_form_to_inform.n_shot(n_samples)
 
-    def prompt_2(data, x, query):
-        prompt = formal_to_informal_prompt_n_shot(data, 5, x)
-        query = 'Korean:' + query + 'Korean:'
-        return prompt, query
+    data = pd.read_csv('data/train/en-ko/en-kr_combined_annotated')
+    gold_labels_kr(data, n_samples)
 
-    kr_form_to_inform.prompt_func = prompt_2
-    kr_form_to_inform.n_shot(2)
 
-    def prompt_3(data, x, query):
-        prompt = formal_to_informal_prompt_n_shot(data, 5, x)
-        query = 'Korean:' + query + 'Korean:'
-        return prompt, query
+def calc_bleu():
+    metric = datasets.load_metric('sacrebleu')
+    data = pd.read_csv('data/train/en-ko/en-kr_combined')
 
-    kr_form_to_inform.prompt_func = prompt_3
-    kr_form_to_inform.n_shot(2)
+    f = open('outputs/kr_informal', "r", encoding='utf-8')
+    data = f.readlines()
+    preds = []
+    for x in data:
+        preds.append([x])
 
+    data = pd.read_csv('data/train/en-ko/en-kr_combined')
+    data = data['Informal_Korean'][:len(preds)]
+    gold_labels = []
+    for x in data:
+        gold_labels.append([x])
+
+    print(gold_labels)
+    result = metric.compute(predictions=preds, references=gold_labels)
+    print(result)
+
+
+# eng_to_formal_kr(10, 3)
+# zero_shot_korean_formal_to_informal(10)
+n_shot_korean_formal_to_informal(50, 5)
+#data = pd.read_csv('data/train/en-ko/en-kr_combined_annotated')
+#gold_labels_kr(data, 10)
