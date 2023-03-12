@@ -28,8 +28,6 @@ def data_processing_vt():
 
     data = pd.DataFrame(data)
     data.to_csv('./data/train/en-vi/en-vi_combined')
-    return 0
-
 
 def data_processing_vt_an():
     kr_train = 'data/train/en-vi/formality-control.train.'
@@ -52,9 +50,32 @@ def data_processing_vt_an():
 
     data = pd.DataFrame(data)
     data.to_csv('./data/train/en-vi/en-vi_combined-annotated')
-    return 0
 
-def data_processing_fr():
+
+def data_processing_kr():
+    kr_train = 'data/train/en-ko/formality-control.train.'
+    data = {'English': [], 'Formal_Korean': [], 'Informal_Korean': []}
+
+    path = kr_train + 'telephony.en-ko.en'
+    data = dataframe_builder(data, path, "English")
+    path = kr_train + 'topical_chat.en-ko.en'
+    data = dataframe_builder(data, path, 'English')
+
+    path = kr_train + 'telephony.en-ko.formal.annotated.ko'
+    data = dataframe_builder(data, path, 'Formal_Korean')
+    path = kr_train + 'topical_chat.en-ko.formal.annotated.ko'
+    data = dataframe_builder(data, path, 'Formal_Korean')
+
+    path = kr_train + 'telephony.en-ko.informal.annotated.ko'
+    data = dataframe_builder(data, path, 'Informal_Korean')
+    path = kr_train + 'topical_chat.en-ko.informal.annotated.ko'
+    data = dataframe_builder(data, path, 'Informal_Korean')
+
+    data = pd.DataFrame(data)
+    data.to_csv('./data/train/en-ko/en-kr_combined')
+
+
+def data_processing_kr_an():
     kr_train = 'data/train/en-ko/formality-control.train.'
     data = {'English': [], 'Formal_Korean': [], 'Informal_Korean': []}
 
@@ -75,7 +96,6 @@ def data_processing_fr():
 
     data = pd.DataFrame(data)
     data.to_csv('./data/train/en-ko/en-kr_combined')
-    return 0
 
 
 def main():
