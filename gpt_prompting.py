@@ -12,10 +12,6 @@ OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 LLM = OpenAI(temperature=0, model_name="text-curie-001")
 
 
-def bleu_scorer():
-    return 0
-
-
 def gold_labels_kr(data, n_samples):
     data = data[:n_samples]
     english = []
@@ -38,30 +34,27 @@ def gold_labels_kr(data, n_samples):
     for x in informal:
         f.write(x.strip()+'\n')
 
+def gold_labels_vi(data, n_samples):
+    data = data[:n_samples]
+    english = []
+    formal = []
+    informal = []
+    for x in data.iterrows():
+        english.append(x[1]['English'])
+        formal.append(x[1]['Formal_Viet'])
+        informal.append(x[1]['Informal_Viet'])
 
-def english_to_formal_prompt_n_shot(data, n, query):
-    data = data[:n]
-    formal_kr = data['Formal_Korean']
-    english = data['English']
-    prompt = ''
-    for i, _ in enumerate(formal_kr):
-        if english[i] != query:
-            prompt = prompt + "Translate English: " + english[i] + 'To Formal Korean: ' + formal_kr[i]
-    prompt =  prompt + '{query}. '
-    return prompt
+    f = open("outputs\\formal_gold_vi", "w", encoding='utf-8')
+    for x in formal:
+        f.write(x.strip()+'\n', )
 
+    f = open("outputs\eng_gold_vi", "w", encoding='utf-8')
+    for x in english:
+        f.write(x.strip()+'\n')
 
-def formal_to_informal_prompt_n_shot(data, n, query):
-    data = data[:n]
-    formal_kr = data['Formal_Korean']
-    informal_kr = data['Informal_Korean']
-    prompt = ''
-    for i, _ in enumerate(formal_kr):
-        if formal_kr[i] != query:
-            prompt = prompt + "Formal Korean:" + formal_kr[i] + 'Informal Korean:' + informal_kr[i]
-    prompt = prompt + '{query}'
-    return prompt
-
+    f = open("outputs\informal_gold_vi", "w", encoding='utf-8')
+    for x in informal:
+        f.write(x.strip()+'\n')
 
 def prompter(prompt, query):
     prompt = PromptTemplate(
@@ -99,8 +92,8 @@ class GPTPrompter(object):
         for x in tqdm(data.iterrows()):
             query = x[1][self.formal_lang]
             prompt, query = self.prompt_func(data, self.n, query)
-            # print("prompt", prompt)
-            # print("query", query)
+            print("prompt", prompt)
+            print("query", query)
             pred = prompter(prompt, query)
             pred = pred.strip()
             pred = pred + '\n'
@@ -111,12 +104,49 @@ class GPTPrompter(object):
             f.write(x)
 
 
+def english_to_formal_prompt_n_shot(data, n, query):
+    data = data.sample(frac=1).reset_index()
+    data = data[:n]
+    formal_kr = data['Formal_Korean']
+    english = data['English']
+    prompt = ''
+    for i, _ in enumerate(formal_kr):
+        if english[i] != query:
+            prompt = prompt + "Translate English: \"" + english[i] + '\" To Korean: ' + formal_kr[i]
+    prompt =  prompt + '{query}'
+    return prompt
+
+
+def formal_to_informal_prompt_n_shot(data, n, query):
+    data = data.sample(frac=1).reset_index()
+    data = data[:n]
+    formal_kr = data['Formal_Korean']
+    informal_kr = data['Informal_Korean']
+    prompt = ''
+    for i, _ in enumerate(formal_kr):
+        if formal_kr[i] != query:
+            prompt = prompt + "Formal Korean:" + formal_kr[i] + 'Informal Korean:' + informal_kr[i]
+    prompt = prompt + '{query}'
+    return prompt
+
+
+def zero_shot_eng_to_korean(n_samples):
+    data = pd.read_csv('data/train/en-ko/en-kr_combined')
+
+    def prompt_1(data, x, query):
+        return '', ''
+
+    korean_zero = GPTPrompter(data, 'English', prompt_1, '.\outputs\eng_kr_zero', 0)
+    prompt = 'Can you translate the the following English into Korean: {query}'
+    korean_zero.zero_shot(prompt, n_samples)
+
+
 def eng_to_formal_kr(n_samples, n_shot):
     data = pd.read_csv('data/train/en-ko/en-kr_combined')
 
     def prompt_1(data, n, query):
         prompt = english_to_formal_prompt_n_shot(data, n, query)
-        query = 'Translate English: ' + query + 'To Formal Korean:'
+        query = 'Translate English : \"' + query + '\" To Korean :'
         return prompt, query
 
     eng_to_formal = GPTPrompter(data, 'English', prompt_1, '.\outputs\eng_formal', n_shot)
@@ -167,14 +197,14 @@ def calc_bleu():
     metric = datasets.load_metric('sacrebleu')
     data = pd.read_csv('data/train/en-ko/en-kr_combined')
 
-    f = open('outputs/kr_informal', "r", encoding='utf-8')
+    f = open('outputs/eng_formal', "r", encoding='utf-8')
     data = f.readlines()
     preds = []
     for x in data:
         preds.append([x])
 
     data = pd.read_csv('data/train/en-ko/en-kr_combined')
-    data = data['Informal_Korean'][:len(preds)]
+    data = data['Formal_Korean'][:len(preds)]
     gold_labels = []
     for x in data:
         gold_labels.append([x])
@@ -184,8 +214,60 @@ def calc_bleu():
     print(result)
 
 
-# eng_to_formal_kr(10, 3)
-# zero_shot_korean_formal_to_informal(10)
-n_shot_korean_formal_to_informal(50, 5)
+#eng_to_formal_kr(20, 5)
+#zero_shot_eng_to_korean(30)
+#zero_shot_korean_formal_to_informal(10)
+#n_shot_korean_formal_to_informal(399, 5)
 #data = pd.read_csv('data/train/en-ko/en-kr_combined_annotated')
 #gold_labels_kr(data, 10)
+#calc_bleu()
+
+def viet_to_formal_prompt_n_shot(data, n, query):
+    data = data.sample(frac=1).reset_index()
+    data = data[:n]
+    formal_vi = data['Formal_Viet']
+    english = data['English']
+    prompt = ''
+    for i, _ in enumerate(formal_vi):
+        if english[i] != query:
+            prompt = prompt + "Translate English: \"" + english[i] + '\" To Vietnamese: ' + formal_vi[i]
+    prompt =  prompt + '{query}'
+    return prompt
+
+
+def eng_to_formal_vi(n_samples, n_shot):
+    data = pd.read_csv('data/train/en-vi/en-vi_combined')
+
+    def prompt_1(data, n, query):
+        prompt = viet_to_formal_prompt_n_shot(data, n, query)
+        query = 'Translate English : \"' + query + '\" To Vietnamese :'
+        return prompt, query
+
+    eng_to_formal = GPTPrompter(data, 'English', prompt_1, '.\outputs\eng_formal_vi', n_shot)
+    eng_to_formal.n_shot(n_samples)
+
+    data = pd.read_csv('data/train/en-vi/en-vi_combined-annotated')
+    gold_labels_vi(data, n_samples)
+
+
+def calc_bleu_vi():
+    metric = datasets.load_metric('sacrebleu')
+
+    f = open('outputs/eng_formal_vi', "r", encoding='utf-8')
+    data = f.readlines()
+    preds = []
+    for x in data:
+        preds.append([x])
+
+    data = pd.read_csv('data/train/en-vi/en-vi_combined')
+    data = data['Formal_Viet'][:len(preds)]
+    gold_labels = []
+    for x in data:
+        gold_labels.append([x])
+
+    print(gold_labels)
+    result = metric.compute(predictions=preds, references=gold_labels)
+    print(result)
+
+eng_to_formal_vi(20, 5)
+calc_bleu_vi()
